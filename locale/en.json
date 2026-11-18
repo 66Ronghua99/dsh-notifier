@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH Notifier",
+    "description": "Shows a macOS notification when a DSH session finishes a turn — including while the DSH window is in front — and clicking it brings DeepSeek Harness forward at that session, even when the window was closed. A small whale doll sits in the corner: it pops a speech bubble when a session finishes, and clicking it opens a per-session reminder list whose unread rows jump straight to that session. Subagent and manually interrupted turns are skipped; `/notify off` mutes only the system banners, and the whale keeps collecting. The bundled helper app posts the banner and records the clicked session (macOS asks for notification permission on first use; adjust the banner style later in System Settings > Notifications > DSH Notifier). macOS only.",
+    "detail": "docs/DETAIL.md"
+  }
+}

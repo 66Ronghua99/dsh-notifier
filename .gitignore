@@ -1,0 +1,5 @@
+.build/
+helper/build/
+helper/AppIcon.icns
+node_modules/
+.DS_Store

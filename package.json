@@ -1,0 +1,52 @@
+{
+  "name": "@local/dsh-notifier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "macOS notification banner when a DSH session finishes; clicking it opens DeepSeek Harness at that session.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/host.js",
+    "./client": "./src/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "src",
+    "helper",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.0 <0.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/66Ronghua99/dsh-notifier.git"
+  },
+  "homepage": "https://github.com/66Ronghua99/dsh-notifier#readme",
+  "bugs": {
+    "url": "https://github.com/66Ronghua99/dsh-notifier/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "macos",
+    "notifications",
+    "whale"
+  ]
+}

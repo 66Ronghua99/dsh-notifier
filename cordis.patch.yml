@@ -1,0 +1,13 @@
+# Insert the DSH Notifier plugin row. Its Client half is declared by the same
+# package (`dsh.client`), so this single row activates both halves.
+- insert:
+    - id: dsh-notifier
+      name: '@local/dsh-notifier'
+      config:
+        enabled: true
+        # auto | zh | en — notification copy language.
+        locale: auto
+        # Also notify while the DSH window is focused (default: true → notify).
+        suppressWhenFocused: false
+        # Shortest interval between two banners for one session, in ms.
+        dedupeWindowMs: 1500
