@@ -195,7 +195,7 @@ export function apply(ctx, config = {}) {
         ? truncate(message, 180)
         : [cwd && cwd !== label ? cwd : '', copy().openHint].filter(Boolean).join(' · ')
       // The inbox always learns about the turn; only the OS banner is gated.
-      recordReminder({ sessionId, title: label, subtitle, kind, body })
+      recordReminder({ sessionId, title: label, where: cwd, subtitle, kind, body })
       if (!shouldBanner(sessionId)) return
       lastNotifiedAt.set(sessionId, Date.now())
       deliver({
@@ -383,6 +383,7 @@ export function apply(ctx, config = {}) {
       id: `rem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       sessionId: input.sessionId,
       title: input.title ?? '',
+      where: input.where ?? '',
       subtitle: input.subtitle ?? '',
       kind: input.kind ?? 'completed',
       body: input.body ?? '',
@@ -495,9 +496,16 @@ export function apply(ctx, config = {}) {
             if (sessionId) markRemindersRead({ sessionId })
           }
         }
+        const live = ctx.get?.('sessions')
+        const visible = reminders.slice(0, 40).map((reminder) => {
+          if (typeof reminder.where === 'string' && reminder.where) return reminder
+          const session = live?.get?.(reminder.sessionId)
+          const cwd = typeof session?.header?.cwd === 'string' ? basename(session.header.cwd) : ''
+          return cwd ? { ...reminder, where: cwd } : reminder
+        })
         return json(res, 200, {
           pending: readPending(surface),
-          reminders: reminders.slice(0, 40),
+          reminders: visible,
           unread: unreadCount(),
           muted,
           dollSize: options.whaleSize,
@@ -537,7 +545,12 @@ export function apply(ctx, config = {}) {
         return json(res, 200, { reminders: reminders.slice(0, 40), unread: unreadCount() })
       }
       if (path === '/dsh-notifier/opened') {
-        lastOpened = { sessionId: url.searchParams.get('session') ?? '', at: Date.now() }
+        lastOpened = {
+          sessionId: url.searchParams.get('session') ?? '',
+          source: url.searchParams.get('source') ?? 'unknown',
+          title: url.searchParams.get('title') ?? '',
+          at: Date.now(),
+        }
         return json(res, 200, { ok: true })
       }
       if (path === '/dsh-notifier/navigate' && req.method === 'POST') {

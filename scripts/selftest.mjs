@@ -245,7 +245,16 @@ check('read directive on the poll marks it read', afterPollRead?.read === true, 
 const allRead = await request('/dsh-notifier/read?all=1')
 check('/read accepts GET with ?all=1', allRead.status === 200 && allRead.json.unread === 0, JSON.stringify(allRead.json))
 
-// 10. Unknown routes answer 404.
+// 10. Reminders carry the workspace folder, and /opened records the source.
+const labelled = (await request('/dsh-notifier/state?focused=0&surface=desktop')).json.reminders.find(
+  (reminder) => reminder.sessionId === 'session-selftest',
+)
+check('reminder carries the workspace folder', labelled?.where === 'DSH-notifier', JSON.stringify(labelled))
+await request('/dsh-notifier/opened?session=session-x&source=reminder&title=hello')
+const opened = (await request('/dsh-notifier/status')).json.lastOpened
+check('/opened records the navigation source', opened?.source === 'reminder' && opened?.title === 'hello', JSON.stringify(opened))
+
+// 11. Unknown routes answer 404.
 check('unknown route answers 404', (await request('/dsh-notifier/nope')).status === 404)
 
 console.log('\nlogs:')

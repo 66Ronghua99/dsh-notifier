@@ -13,7 +13,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { useState, useEffect, useRef } = React
 
-    const CLIENT_BUILD = '0.1.1'
+    const CLIENT_BUILD = '0.1.3'
     const POLL_INTERVAL_MS = 1500
     const BUBBLE_VISIBLE_MS = 9000
     const POP_VISIBLE_MS = 900
@@ -132,17 +132,17 @@ window.__ModuleLoader__.load({
 
       // MARK: navigation
 
-      function reportOpened(sessionId) {
+      function reportOpened(sessionId, source, title) {
         try {
-          fetch(`/dsh-notifier/opened?session=${encodeURIComponent(sessionId)}`, { cache: 'no-store' }).catch(
-            () => {},
-          )
+          const query = new URLSearchParams({ session: sessionId, source })
+          if (title) query.set('title', title.slice(0, 80))
+          fetch(`/dsh-notifier/opened?${query.toString()}`, { cache: 'no-store' }).catch(() => {})
         } catch {
           // Diagnostics only.
         }
       }
 
-      function openSession(sessionId) {
+      function openSession(sessionId, source = 'pending', title = '') {
         try {
           window.focus()
         } catch {
@@ -150,9 +150,9 @@ window.__ModuleLoader__.load({
         }
         try {
           uiWorkspace.openSession(sessionId)
-          reportOpened(sessionId)
+          reportOpened(sessionId, source, title)
         } catch (error) {
-          console.error('[dsh-notifier] openSession failed', error)
+          console.error(`[dsh-notifier] openSession failed (${source})`, error)
         }
       }
 
@@ -225,9 +225,13 @@ window.__ModuleLoader__.load({
             return
           }
           const payload = await response.json()
-          for (const item of Array.isArray(payload?.pending) ? payload.pending : []) {
-            if (typeof item?.sessionId === 'string' && item.sessionId) openSession(item.sessionId)
-          }
+          // Only the newest hand-off wins: an older queued click must never
+          // override a session the user just opened.
+          const pendingItems = (Array.isArray(payload?.pending) ? payload.pending : []).filter(
+            (item) => typeof item?.sessionId === 'string' && item.sessionId,
+          )
+          const newest = pendingItems[pendingItems.length - 1]
+          if (newest) openSession(newest.sessionId, 'pending', newest.title ?? '')
           const reminders = Array.isArray(payload?.reminders) ? payload.reminders : []
           noteNewReminders(reminders)
           const patch = {
@@ -351,16 +355,16 @@ window.__ModuleLoader__.load({
         }
 
         function openBannerSession() {
-          const sessionId = state.banner?.sessionId
+          const banner = state.banner
           setState({ panelOpen: false, banner: null })
-          if (typeof sessionId !== 'string' || sessionId === '') return
-          openSession(sessionId)
-          readLocally(sessionId)
-          markRead(sessionId)
+          if (typeof banner?.sessionId !== 'string' || banner.sessionId === '') return
+          openSession(banner.sessionId, 'bubble', banner.text ?? '')
+          readLocally(banner.sessionId)
+          markRead(banner.sessionId)
         }
 
         function openGroup(group) {
-          openSession(group.sessionId)
+          openSession(group.sessionId, 'reminder', group.title)
           readLocally(group.sessionId)
           markRead(group.sessionId)
           setState({ panelOpen: false, banner: null })
@@ -425,9 +429,9 @@ window.__ModuleLoader__.load({
                             h(
                               'span',
                               { className: 'dsn-row-meta' },
-                              subtitleOf(group.kind, copy),
-                              ' · ',
-                              relativeTime(group.at, copy),
+                              [group.where, subtitleOf(group.kind, copy), relativeTime(group.at, copy)]
+                                .filter(Boolean)
+                                .join(' · '),
                               group.count > 1 ? ` · ×${group.count}` : '',
                             ),
                           ),
@@ -613,6 +617,7 @@ window.__ModuleLoader__.load({
           groups.set(sessionId, {
             sessionId,
             title: reminder.title ?? '',
+            where: reminder.where ?? '',
             kind: reminder.kind ?? 'completed',
             at: Number(reminder.at) || 0,
             count: 1,
