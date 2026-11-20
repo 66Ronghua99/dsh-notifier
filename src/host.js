@@ -633,11 +633,17 @@ export function apply(ctx, config = {}) {
           group: 'dsh-test',
         }
         // Exercise both surfaces: the banner and the whale's inbox entry.
+        // The inbox entry uses the session's real title so a test row reads
+        // like a real one instead of repeating the banner copy.
         const inboxSession = sessionId || latestSessionId()
         if (inboxSession) {
+          const liveSession = ctx.get?.('sessions')?.get?.(inboxSession)
+          const realTitle = liveSession ? sessionTitleOf(liveSession) : ''
+          const cwd = typeof liveSession?.header?.cwd === 'string' ? basename(liveSession.header.cwd) : ''
           recordReminder({
             sessionId: inboxSession,
-            title: payload.title,
+            title: realTitle || payload.title,
+            where: cwd,
             subtitle: payload.subtitle,
             kind: 'completed',
             body: payload.body,

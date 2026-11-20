@@ -13,7 +13,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { useState, useEffect, useRef } = React
 
-    const CLIENT_BUILD = '0.1.3'
+    const CLIENT_BUILD = '0.1.4'
     const POLL_INTERVAL_MS = 1500
     const BUBBLE_VISIBLE_MS = 9000
     const POP_VISIBLE_MS = 900
