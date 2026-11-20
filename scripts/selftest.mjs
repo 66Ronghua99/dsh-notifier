@@ -229,7 +229,23 @@ const afterRead = (await request('/dsh-notifier/state?focused=0&surface=desktop'
 )
 check('/read marks that session read', afterRead.every((reminder) => reminder.read === true), JSON.stringify(afterRead.map((r) => r.read)))
 
-// 9. Unknown routes answer 404.
+// 9. Read directives ride the state poll, and `/read` accepts GET too.
+writeFileSync(
+  pendingFile,
+  JSON.stringify({ version: 1, items: [] }),
+)
+const seed = await request('/dsh-notifier/test', 'POST', JSON.stringify({ sessionId: 'session-poll-read' }))
+check('/test seeds a reminder', seed.status === 200)
+const beforePollRead = (await request('/dsh-notifier/state?focused=0&surface=desktop')).json
+const seeded = beforePollRead.reminders.find((reminder) => reminder.sessionId === 'session-poll-read')
+check('seed reminder is unread', seeded?.read === false, JSON.stringify(seeded))
+const pollRead = await request('/dsh-notifier/state?focused=0&surface=desktop&read=session-poll-read')
+const afterPollRead = pollRead.json.reminders.find((reminder) => reminder.sessionId === 'session-poll-read')
+check('read directive on the poll marks it read', afterPollRead?.read === true, JSON.stringify(afterPollRead))
+const allRead = await request('/dsh-notifier/read?all=1')
+check('/read accepts GET with ?all=1', allRead.status === 200 && allRead.json.unread === 0, JSON.stringify(allRead.json))
+
+// 10. Unknown routes answer 404.
 check('unknown route answers 404', (await request('/dsh-notifier/nope')).status === 404)
 
 console.log('\nlogs:')

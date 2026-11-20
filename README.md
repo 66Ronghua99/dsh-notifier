@@ -96,7 +96,7 @@ Served by the DSH web server, same origin as the GUI:
 | --- | --- |
 | `GET /dsh-notifier/state?focused=0\|1&surface=desktop\|web` | Everything the client half needs: queued clicked sessions, the reminder inbox, unread count, mute state. |
 | `GET /dsh-notifier/pending?…` | Same hand-off queue on its own (kept for scripts and older clients). |
-| `POST /dsh-notifier/read` | Mark one session read (`{"sessionId":"…"}`) or all (`{"all":true}`). |
+| `POST /dsh-notifier/read` | Mark one session read (`{"sessionId":"…"}`) or all (`{"all":true}`); `GET /dsh-notifier/read?session=…` / `?all=1` works too. The client half instead rides these directives on the poll (`/state?read=…` / `?readAll=1`) so marking read never needs a separate write. |
 | `POST /dsh-notifier/forget` | Drop one session's reminders (`{"sessionId":"…"}`) or all (`{"all":true}`). |
 | `GET /dsh-notifier/reminders` | Read the inbox without consuming hand-offs. |
 | `GET /dsh-notifier/status` | Helper path, permission diagnostics, pending count, last delivery and last navigation. |

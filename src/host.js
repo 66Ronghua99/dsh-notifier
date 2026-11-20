@@ -66,6 +66,8 @@ export function apply(ctx, config = {}) {
   const systemLanguage = resolveLanguage(options.locale)
   /** Locale the live page reported; it follows the DSH UI, not the OS. */
   let pageLocale = ''
+  /** Client build string the page reported, for diagnostics after updates. */
+  let pageBuild = null
 
   function language() {
     if (options.locale === 'zh' || options.locale === 'en') return options.locale
@@ -483,6 +485,16 @@ export function apply(ctx, config = {}) {
         presence = { focused: url.searchParams.get('focused') === '1', surface, at: Date.now() }
         const reported = (url.searchParams.get('locale') ?? '').toLowerCase()
         if (reported.startsWith('zh') || reported.startsWith('en')) pageLocale = reported.slice(0, 2)
+        const build = url.searchParams.get('build')
+        if (build) pageBuild = build.slice(0, 24)
+        // Read directives ride the poll so one request both marks and re-reads state.
+        if (url.searchParams.get('readAll') === '1') {
+          markRemindersRead({ all: true })
+        } else {
+          for (const sessionId of url.searchParams.getAll('read')) {
+            if (sessionId) markRemindersRead({ sessionId })
+          }
+        }
         return json(res, 200, {
           pending: readPending(surface),
           reminders: reminders.slice(0, 40),
@@ -492,14 +504,17 @@ export function apply(ctx, config = {}) {
           at: Date.now(),
         })
       }
-      if (path === '/dsh-notifier/read' && req.method === 'POST') {
+      if (path === '/dsh-notifier/read' && (req.method === 'POST' || req.method === 'GET')) {
         let request = {}
-        try {
-          request = JSON.parse((await readBody(req)) || '{}') ?? {}
-        } catch {
-          request = {}
+        if (req.method === 'POST') {
+          try {
+            request = JSON.parse((await readBody(req)) || '{}') ?? {}
+          } catch {
+            request = {}
+          }
         }
-        const bySession = typeof request.sessionId === 'string' && request.sessionId ? request.sessionId : ''
+        const bySession =
+          (typeof request.sessionId === 'string' && request.sessionId) || url.searchParams.get('session') || ''
         const all = request.all === true || url.searchParams.get('all') === '1'
         const changed = markRemindersRead({ sessionId: bySession, all })
         return json(res, 200, { ok: true, changed, unread: unreadCount() })
@@ -559,6 +574,7 @@ export function apply(ctx, config = {}) {
           platform: process.platform,
           locale: language(),
           pageLocale: pageLocale || null,
+          pageBuild,
           helper: { path: helperBinary, exists: helperBinary !== undefined },
           art: { mode: options.whaleImage, file: artFile ?? null },
           stateDir,

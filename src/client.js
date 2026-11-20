@@ -13,6 +13,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { useState, useEffect, useRef } = React
 
+    const CLIENT_BUILD = '0.1.1'
     const POLL_INTERVAL_MS = 1500
     const BUBBLE_VISIBLE_MS = 9000
     const POP_VISIBLE_MS = 900
@@ -123,6 +124,9 @@ window.__ModuleLoader__.load({
       let disposed = false
       let inFlight = false
       let lastSeenAt = 0
+      /** Read directives not yet accepted by the Host. */
+      const pendingRead = new Set()
+      let pendingReadAll = false
       let bannerTimer = 0
       let popTimer = 0
 
@@ -152,16 +156,14 @@ window.__ModuleLoader__.load({
         }
       }
 
-      async function markRead(sessionId) {
-        try {
-          await fetch('/dsh-notifier/read', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(sessionId ? { sessionId } : { all: true }),
-          })
-        } catch {
-          // The next poll reconciles.
-        }
+      /**
+       * Queue a read directive. It rides the next state poll instead of a
+       * separate write request, so marking read works wherever the poll works.
+       */
+      function markRead(sessionId) {
+        if (sessionId) pendingRead.add(sessionId)
+        else pendingReadAll = true
+        poll()
       }
 
       function readLocally(sessionId) {
@@ -200,16 +202,28 @@ window.__ModuleLoader__.load({
       async function poll() {
         if (disposed || inFlight) return
         inFlight = true
+        const queuedAll = pendingReadAll
+        const queuedSessions = [...pendingRead]
+        pendingReadAll = false
+        pendingRead.clear()
         try {
           const focused = document.hasFocus() ? '1' : '0'
           const surface = location.protocol === 'dsh-app:' ? 'desktop' : 'web'
           const active = locale?.getLocale?.().active
           const localeParam = typeof active === 'string' ? `&locale=${encodeURIComponent(active)}` : ''
+          const readParam = queuedAll
+            ? '&readAll=1'
+            : queuedSessions.map((id) => `&read=${encodeURIComponent(id)}`).join('')
           const response = await fetch(
-            `/dsh-notifier/state?focused=${focused}&surface=${surface}${localeParam}`,
+            `/dsh-notifier/state?focused=${focused}&surface=${surface}&build=${CLIENT_BUILD}${localeParam}${readParam}`,
             { cache: 'no-store' },
           )
-          if (!response.ok) return
+          if (!response.ok) {
+            // Keep the directives for the next tick instead of dropping them.
+            if (queuedAll) pendingReadAll = true
+            for (const sessionId of queuedSessions) pendingRead.add(sessionId)
+            return
+          }
           const payload = await response.json()
           for (const item of Array.isArray(payload?.pending) ? payload.pending : []) {
             if (typeof item?.sessionId === 'string' && item.sessionId) openSession(item.sessionId)
@@ -225,7 +239,9 @@ window.__ModuleLoader__.load({
           if (!state.dollSize) patch.dollSize = clamp(serverSize, DOLL_SIZE_MIN, DOLL_SIZE_MAX)
           setState(patch)
         } catch {
-          // The Host may be restarting; the next tick retries.
+          // The Host may be restarting; keep the directives for the next tick.
+          if (queuedAll) pendingReadAll = true
+          for (const sessionId of queuedSessions) pendingRead.add(sessionId)
         } finally {
           inFlight = false
         }
